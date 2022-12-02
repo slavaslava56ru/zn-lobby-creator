@@ -5,33 +5,38 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"log"
-	"net/http"
-	"zn/client"
+	"os"
+	"os/signal"
+	"syscall"
+	"zn/hub"
+	"zn/websocket"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-var addr = flag.String("addr", ":8080", "http service address")
+var port = flag.Int("port", 8080, "http service address")
 
 func main() {
 	flag.Parse()
 
-	log.Println("App started")
+	consoleDebugging := zapcore.Lock(os.Stdout)
+	logger := zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), consoleDebugging, zap.NewAtomicLevelAt(zapcore.DebugLevel)), zap.AddCaller()).Sugar()
+	defer logger.Sync()
 
-	hub := client.NewHub()
+	hub := hub.NewHub(logger)
 	go hub.Run()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	wsServer := websocket.NewServer(hub, *port, logger)
+	wsServer.Start()
+	defer wsServer.Close()
 
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		client.ServeWs(ctx, hub, w, r)
-	})
-	err := http.ListenAndServe(*addr, nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
-	}
+	logger.Info("App started")
 
-	cancel()
-	log.Println("App stopped")
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT)
+	<-ch
+	signal.Stop(ch)
+	logger.Info("App stopped")
 }
