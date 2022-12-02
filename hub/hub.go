@@ -50,7 +50,7 @@ func (h *Hub) RegisterClient(client *Client) {
 func (h *Hub) UnregisterClient(client *Client) {
 
 	if client.currentLobby != nil && client.currentLobby.IsOwner(client.uuid) {
-		client.currentLobby.Close()
+		h.UnregisterLobby(client)
 	}
 
 	h.mu.Lock()
@@ -59,6 +59,12 @@ func (h *Hub) UnregisterClient(client *Client) {
 	h.mu.Unlock()
 
 	h.logger.Info("Unregister client %s", client.name)
+}
+func (h *Hub) UnregisterLobby(client *Client) {
+
+	client.currentLobby.Close()
+	delete(h.lobbys, client.currentLobby.GetName())
+	client.currentLobby = nil
 }
 
 func (h *Hub) GetClient(clientUUID string) (*Client, bool) {
@@ -108,7 +114,7 @@ func (h *Hub) Run() {
 				default:
 
 					if client.currentLobby != nil && client.currentLobby.IsOwner(client.uuid) {
-						client.currentLobby.Close()
+						h.UnregisterLobby(client)
 					}
 					close(client.send)
 					h.mu.Lock()

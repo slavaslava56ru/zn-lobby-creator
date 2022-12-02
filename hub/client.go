@@ -130,7 +130,7 @@ func (c *Client) HandleInput(input string) {
 			return
 		}
 
-		c.currentLobby = lobby.NewLobby(c.uuid, split[1], maxPlayers)
+		c.currentLobby = lobby.NewLobby(c.uuid, split[1], maxPlayers, c.ipAddress)
 
 		c.hub.muLobby.Lock()
 		c.hub.lobbys[split[1]] = c.currentLobby
@@ -153,7 +153,7 @@ func (c *Client) HandleInput(input string) {
 		if err != nil {
 			c.logger.Infof("Error on send message destory lobby %s", err.Error())
 		}
-		c.currentLobby.Close()
+		c.hub.UnregisterLobby(c)
 
 	case "/get_lobby_list":
 
@@ -270,6 +270,20 @@ func (c *Client) HandleInput(input string) {
 		}
 		c.send <- getMessage("all_players", players)
 
+	case "/start_game":
+
+		if c.currentLobby == nil {
+			c.send <- getMessage("error", "lobby already exist")
+			return
+		}
+
+		err := c.hub.BroadcastToLobby(c.currentLobby.GetName(), getMessage("start_game", c.currentLobby.GetIp()))
+		if err != nil {
+			c.logger.Infof("Error on send message destory lobby %s", err.Error())
+		}
+
+		c.logger.Infof("start game for lobby %s", c.name)
+		c.hub.UnregisterLobby(c)
 	default:
 		c.send <- getMessage("error", fmt.Sprintf("unknown command %s", split[0]))
 	}

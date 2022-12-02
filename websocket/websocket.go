@@ -5,13 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 	"zn/hub"
+
+	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 const (
@@ -114,7 +116,7 @@ func serveWs(ctx context.Context, logger *zap.SugaredLogger, hubService *hub.Hub
 	}
 
 	send := make(chan []byte, 256)
-	newClient := hub.NewClient(logger, playerName, hubService, send, conn.RemoteAddr().String())
+	newClient := hub.NewClient(logger, playerName, hubService, send, strings.Split(conn.RemoteAddr().String(), ":")[0])
 	newClient.Start()
 
 	clientContext, cancel := context.WithCancel(ctx)

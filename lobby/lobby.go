@@ -4,17 +4,16 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 // Hub maintains the set of active clientsUUID and broadcasts messages to the
 // clientsUUID.
 type Lobby struct {
-	uuid   string
-	logger *zap.SugaredLogger
+	uuid string
 
 	name       string
 	ownerUUID  string
+	ipAddress  string
 	maxPlayers int
 
 	// клиентв
@@ -24,7 +23,7 @@ type Lobby struct {
 	availableIndexList []int64
 }
 
-func NewLobby(ownerUUID string, lobbyName string, maxPlayers int) *Lobby {
+func NewLobby(ownerUUID string, lobbyName string, maxPlayers int, ipAddress string) *Lobby {
 
 	availableIndexList := make([]int64, 0, maxPlayers-1)
 	for i := 0; i < (maxPlayers); i++ {
@@ -35,6 +34,7 @@ func NewLobby(ownerUUID string, lobbyName string, maxPlayers int) *Lobby {
 	clientsUUID[ownerUUID] = 0
 	return &Lobby{
 		uuid:               uuid.New().String(),
+		ipAddress:          ipAddress,
 		ownerUUID:          ownerUUID,
 		name:               lobbyName,
 		maxPlayers:         maxPlayers,
@@ -114,10 +114,14 @@ func (l *Lobby) GetMaxPlayers() int {
 	return l.maxPlayers
 }
 
+func (l *Lobby) GetIp() string {
+
+	return l.ipAddress
+}
+
 func (l *Lobby) Close() {
 
 	l.mu.Lock()
 	l.clientsUUID = nil
 	l.mu.Unlock()
-	l.logger.Info("Lobby destroyed")
 }
