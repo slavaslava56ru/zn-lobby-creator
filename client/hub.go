@@ -48,9 +48,11 @@ func (h *Hub) Run() {
 			log.Printf("Add new Client %s", client.Name)
 		case client := <-h.unregister:
 
+			log.Printf("Start unregister Client %s", client.Name)
 			if client.currentLobby != nil && client.currentLobby.owner == client {
 				client.currentLobby.destroyLobby <- true
 			}
+			log.Printf("Destroyed lobby by %s", client.Name)
 			delete(h.clientByName, client.Name)
 			delete(h.clients, client)
 			log.Printf("delete Client %s", client.Name)
