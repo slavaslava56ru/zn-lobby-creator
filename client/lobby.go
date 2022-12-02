@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"log"
+	"sync"
 )
 
 // Hub maintains the set of active clients and broadcasts messages to the
@@ -14,6 +15,7 @@ type lobby struct {
 	hub        *Hub
 
 	// клиентв
+	mu      sync.RWMutex
 	clients map[*Client]int64
 
 	// канал для рассылки сообщения всем в лобби
@@ -58,7 +60,9 @@ func (l *lobby) Run() {
 	log.Println("Lobby created")
 	defer func() {
 
+		l.hub.muLobby.Lock()
 		delete(l.hub.lobbys, l.name)
+		l.hub.muLobby.Unlock()
 		l.clients = nil
 		log.Println("Lobby destroyed")
 	}()
@@ -76,7 +80,9 @@ func (l *lobby) Run() {
 					PlayerIndex: l.clients[client],
 				})
 			}
-			l.broadcast <- getMessage("user_joined_to_lobby", players)
+			go func() {
+				l.broadcast <- getMessage("user_joined_to_lobby", players)
+			}()
 			log.Printf("add new Client to lobby %s", client.Name)
 		case client := <-l.unregister:
 
@@ -89,7 +95,9 @@ func (l *lobby) Run() {
 					PlayerIndex: l.clients[client],
 				})
 			}
-			l.broadcast <- getMessage("user_leaved_from_lobby", players)
+			go func() {
+				l.broadcast <- getMessage("user_leaved_from_lobby", players)
+			}()
 			log.Println(fmt.Printf("delete client from lobby %s", client.Name))
 		case message := <-l.broadcast:
 

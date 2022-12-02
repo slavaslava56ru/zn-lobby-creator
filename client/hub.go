@@ -2,18 +2,22 @@ package client
 
 import (
 	"log"
+	"sync"
 )
 
 // Hub maintains the set of active clients and broadcasts messages to the
 // clients.
 type Hub struct {
+
 	// клиенты
 	clients map[*Client]bool
 
+	mu           sync.RWMutex
 	clientByName map[string]*Client
 
 	// клиенты
-	lobbys map[string]*lobby
+	muLobby sync.RWMutex
+	lobbys  map[string]*lobby
 
 	// канал для рассылки сообщения всем
 	broadcast chan []byte
@@ -43,7 +47,10 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
+
+			h.mu.Lock()
 			h.clientByName[client.Name] = client
+			h.mu.Unlock()
 
 			log.Printf("Add new Client %s", client.Name)
 		case client := <-h.unregister:
@@ -51,7 +58,9 @@ func (h *Hub) Run() {
 			if client.currentLobby != nil && client.currentLobby.owner == client {
 				client.currentLobby.destroyLobby <- true
 			}
+			h.mu.Lock()
 			delete(h.clientByName, client.Name)
+			h.mu.Unlock()
 			delete(h.clients, client)
 			log.Printf("delete Client %s", client.Name)
 		case message := <-h.broadcast:
@@ -66,7 +75,9 @@ func (h *Hub) Run() {
 						client.currentLobby.destroyLobby <- true
 					}
 					close(client.send)
+					h.mu.Lock()
 					delete(h.clientByName, client.Name)
+					h.mu.Unlock()
 					delete(h.clients, client)
 				}
 			}

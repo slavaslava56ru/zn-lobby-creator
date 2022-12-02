@@ -49,7 +49,10 @@ func (c *Client) handleInput(input string) {
 			return
 		}
 
+		c.hub.mu.RLock()
 		client, exist := c.hub.clientByName[split[1]]
+		c.hub.mu.RUnlock()
+
 		if !exist {
 			c.send <- getMessage("error", "need correct player_name")
 			return
@@ -88,7 +91,9 @@ func (c *Client) handleInput(input string) {
 			return
 		}
 
+		c.hub.muLobby.RLock()
 		_, exist := c.hub.lobbys[split[1]]
+		c.hub.muLobby.RUnlock()
 		if exist {
 			c.send <- getMessage("error", "lobby with selected name is exist")
 			return
@@ -97,7 +102,9 @@ func (c *Client) handleInput(input string) {
 		c.currentLobby = NewLobby(c, split[1], maxPlayers, c.hub)
 		go c.currentLobby.Run()
 
+		c.hub.muLobby.Lock()
 		c.hub.lobbys[split[1]] = c.currentLobby
+		c.hub.muLobby.Unlock()
 		c.send <- getMessage("lobby_created", c.conn.RemoteAddr().String())
 
 	case "/destroy_lobby":
@@ -117,6 +124,7 @@ func (c *Client) handleInput(input string) {
 
 	case "/get_lobby_list":
 
+		c.hub.muLobby.RLock()
 		lobbyList := make([]*lobbyItem, 0, len(c.hub.lobbys))
 		for _, lobby := range c.hub.lobbys {
 
@@ -126,7 +134,7 @@ func (c *Client) handleInput(input string) {
 				MaxPlayers:     lobby.maxPlayers,
 			})
 		}
-
+		c.hub.muLobby.RUnlock()
 		c.send <- getMessage("lobby_list", lobbyList)
 
 	case "/join_to_lobby":
@@ -141,7 +149,9 @@ func (c *Client) handleInput(input string) {
 			return
 		}
 
+		c.hub.muLobby.RLock()
 		lobby, exist := c.hub.lobbys[split[1]]
+		c.hub.muLobby.RUnlock()
 		if !exist {
 			c.send <- getMessage("error", fmt.Sprintf("lobby not found %s", split[0]))
 			return
